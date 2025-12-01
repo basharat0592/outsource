@@ -1,0 +1,29 @@
+# next.js
+/frontend/.next/
+frontend/node_modules/
+
+# production
+/build
+
+# Python cache
+backend/__pysache__
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+backend/.venv
+backend/venv
+backend/server_files/log.txt
+
+# misc
+.DS_Store
+*.pem
+*.pyc
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# env file
+.env
+.env*
