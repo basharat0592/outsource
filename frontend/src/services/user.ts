@@ -1,0 +1,2 @@
+import api from './api';
+export const getProfile = () => api.get('/user/profile');
