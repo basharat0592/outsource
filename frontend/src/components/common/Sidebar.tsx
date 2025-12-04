@@ -29,8 +29,7 @@ export default function Sidebar() {
         scrollbar-thin 
         scrollbar-thumb-white/40 
         scrollbar-track-transparent
-        flex-shrink-0
-      "
+        flex-shrink-0      "
         >
             <div className="mb-10">
                 <img
