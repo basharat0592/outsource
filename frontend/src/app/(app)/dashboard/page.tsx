@@ -1,3 +1,5 @@
+"use client";
+
 import BasicLineChart from '@/components/charts/LineChart';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
