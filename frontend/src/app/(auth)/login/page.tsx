@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 export default function LoginPage() {
   const router = useRouter();
   const { setToken } = useAuthStore();
-  const [email, setEmail] = useState("test1@gmail.com"); // Default email for testing
+  const [email, setEmail] = useState(""); // Default email for testing
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");

@@ -20,7 +20,8 @@ export default function Sidebar() {
     return (
         <aside
             className="
-        w-95                         /* ⬅ increased width */
+        w-90     
+        position-sticky                    /* ⬅ increased width */
         h-screen                     /* full height */
         bg-[#5321A9] 
         p-6 
@@ -28,13 +29,12 @@ export default function Sidebar() {
         overflow-y-scroll            /* ⬅ separate scrollbar */
         scrollbar-thin 
         scrollbar-thumb-white/40 
-        scrollbar-track-transparent
         flex-shrink-0      "
         >
             <div className="mb-10">
                 <img
-                    src="/logo.jpg"          // ⬅ Replace with your image path
-                    alt="OUTSOURCE.COM Logo"
+                    src="/logo.png"          // ⬅ Replace with your image path
+                    alt="Logo"
                     className="w-60 h-auto mt-3" // Adjust width & height as needed
                 />
             </div>
@@ -47,7 +47,7 @@ export default function Sidebar() {
                 <ul className="space-y-2">
                     <li>
                         <Link
-                            href="/tasks"
+                            href="/dashboard"
                             className="flex items-center gap-3 p-2 rounded transition hover:bg-[#6D3AD1] cursor-pointer"
                         >
                             <FileText className="h-5 w-5" />
@@ -65,7 +65,7 @@ export default function Sidebar() {
                         </Link>
                     </li>
                 </ul>
-            </div>
+            </div>  
 
             {/* Contacts Section */}
             <div className="mb-8">
