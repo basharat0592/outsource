@@ -88,10 +88,17 @@ export default function Sidebar() {
             <div className="mb-8">
                 <h2 className="text-lg font-semibold mb-4">Organisation</h2>
 
-                <button className="flex items-center gap-3 p-2 rounded transition hover:bg-[#6D3AD1] w-full text-left cursor-pointer">
-                    <Building className="h-5 w-5" />
-                    <span className="font-medium">Demo Accounting Ltd</span>
-                </button>
+                               <ul className="space-y-2">
+                    <li>
+                        <Link
+                            href="/demo-accounting"
+                            className="flex items-center gap-3 p-2 rounded transition hover:bg-[#6D3AD1] cursor-pointer"
+                        >
+                            <Users className="h-5 w-5" />
+                            <span>Demo Accounting Ltd</span>
+                        </Link>
+                    </li>
+                </ul>
             </div>
 
             {/* Divider */}
