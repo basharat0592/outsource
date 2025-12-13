@@ -1,6 +1,9 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+import shutil
+import os
+from fastapi import FastAPI, HTTPException, Depends, status, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles # <--- Files serve karne ke liye
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
@@ -19,6 +22,12 @@ app = FastAPI(
     description="Complete CRM for Accounting Firm with Task Management",
     version="2.0.0"
 )
+
+# ========== STATIC FILES (UPLOADS) ==========
+# Uploads folder create karein agar nahi hai
+os.makedirs("uploads", exist_ok=True)
+# Images/Files access karne ke liye URL path banayen (http://localhost:8000/uploads/file.png)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ========== CORS (Frontend Connection ke liye) ==========
 app.add_middleware(
@@ -52,7 +61,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 def create_notification(db: Session, user_id: int, message: str, notification_type: str = None, task_id: int = None):
     notification = models.Notification(
         user_id=user_id,
-        task_id=task_id,  # <--- NEW
+        task_id=task_id,
         message=message,
         notification_type=notification_type
     )
@@ -75,7 +84,7 @@ def create_activity(db: Session, user_id: int, activity_type: str, description: 
 # ========== AUTH ENDPOINTS ==========
 @app.post("/login")
 def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
-    # Logic Update: Check Username OR Email
+    # Check Username OR Email
     user = db.query(models.User).filter(
         ((models.User.username == login_data.username) | (models.User.email == login_data.username)) &
         (models.User.password == login_data.password)
@@ -103,9 +112,7 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
 def forgot_password(request: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == request.email).first()
     if not user:
-        # Security: User ko mat batao ki email nahi mila
         raise HTTPException(status_code=404, detail="Email address not found")
-    
     return {"message": "If this email exists, a password reset link has been sent."}
 
 @app.post("/register", response_model=schemas.UserResponse)
@@ -124,6 +131,17 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     create_activity(db, db_user.user_id, "user_registered", f"New user registered: {user.username}")
     
     return db_user
+
+# ========== FILE UPLOAD ENDPOINT (NEW) ==========
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    # File ko 'uploads' folder mein save karna
+    file_location = f"uploads/{file.filename}"
+    with open(file_location, "wb+") as file_object:
+        shutil.copyfileobj(file.file, file_object)
+    
+    # Filename return karein taake Frontend usay Task ke sath save kar sake
+    return {"filename": file.filename, "url": f"/uploads/{file.filename}"}
 
 # ========== USER ENDPOINTS ==========
 @app.get("/users", response_model=List[schemas.UserResponse])
@@ -146,10 +164,9 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-# ========== ROLE ENDPOINTS (NEW ADDED) ==========
+# ========== ROLE ENDPOINTS ==========
 @app.get("/permissions-list")
 def get_permissions_list():
-    """Returns the list of checkboxes shown in the Add Role image"""
     return {
         "Client": ["add", "change", "delete", "view"],
         "Role": ["add", "change", "delete", "view"],
@@ -161,7 +178,6 @@ def get_permissions_list():
 @app.get("/roles", response_model=List[schemas.RoleResponse])
 def get_roles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     roles = db.query(models.Role).offset(skip).limit(limit).all()
-    # Database se Text aata hai, usay wapis JSON banate hain
     for role in roles:
         if role.permissions:
             role.permissions = json.loads(role.permissions)
@@ -170,17 +186,15 @@ def get_roles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return roles
 
 @app.post("/roles", response_model=schemas.RoleResponse, status_code=status.HTTP_201_CREATED)
-@app.post("/roles", response_model=schemas.RoleResponse, status_code=status.HTTP_201_CREATED)
 def create_role(role: schemas.RoleBase, db: Session = Depends(get_db)):
     existing = db.query(models.Role).filter(models.Role.role_name == role.role_name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Role already exists")
     
-    # Frontend se Dictionary aati hai, usay Text banakar save karte hain
     perms_json = json.dumps(role.permissions) if role.permissions else "{}"
     
     new_role = models.Role(
-        role_name=role.role_name, # Fixed: removed .role
+        role_name=role.role_name,
         description=role.description,
         permissions=perms_json
     )
@@ -188,14 +202,12 @@ def create_role(role: schemas.RoleBase, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_role)
     
-    # Response bhejte waqt wapis JSON bana dete hain
     new_role.permissions = json.loads(new_role.permissions)
     return new_role
 
 # ========== CLIENT ENDPOINTS ==========
 @app.get("/client-types")
 def get_client_types():
-    """Returns list of client types for the Add Client dropdown"""
     return [
         {"value": t.value, "label": t.value.replace("_", " ").title()} 
         for t in schemas.ClientType
@@ -239,11 +251,14 @@ def get_tasks(
     if task_type_id:
         query = query.filter(models.Task.task_type_id == task_type_id)
     if search:
-        query = query.filter(models.Task.title.ilike(f"%{search}%"))
+        # Search by Title OR ID (taake Details page ID se fetch kar sakay)
+        if search.isdigit():
+             query = query.filter(models.Task.task_id == int(search))
+        else:
+             query = query.filter(models.Task.title.ilike(f"%{search}%"))
     
     tasks = query.order_by(models.Task.due_date).offset(skip).limit(limit).all()
     
-    # Process attachments JSON
     result = []
     for task in tasks:
         task_dict = {
@@ -267,13 +282,11 @@ def get_tasks(
 
 @app.post("/tasks", response_model=schemas.TaskResponse, status_code=status.HTTP_201_CREATED)
 def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
-    # Validate Client
     if task.client_id:
         client = db.query(models.Client).filter(models.Client.client_id == task.client_id).first()
         if not client:
             raise HTTPException(status_code=404, detail="Client not found")
     
-    # JSON convert attachments
     attachments_json = json.dumps(task.attachments) if task.attachments else None
     
     new_task = models.Task(
@@ -295,16 +308,15 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
     
     create_activity(db, 1, "task_created", f"Created task: {task.title}")
     
-    # Jahan notification bhej rahe thay, wahan task_id pass karein:
     if task.agent_id:
         create_notification(
             db, 
             task.agent_id, 
             f"New task assigned: {task.title}", 
             "task_assigned",
-            task_id=new_task.task_id # <--- NEW
+            task_id=new_task.task_id
         )
-    # Format for response
+    
     new_task.attachments = json.loads(new_task.attachments) if new_task.attachments else []
     return new_task
 
@@ -316,6 +328,7 @@ def update_task(task_id: int, task_update: schemas.TaskUpdate, db: Session = Dep
     
     update_data = task_update.dict(exclude_unset=True)
     
+    # Attachments ko wapis JSON String mein convert karo save karne se pehle
     if 'attachments' in update_data:
         update_data['attachments'] = json.dumps(update_data['attachments']) if update_data['attachments'] else None
     
@@ -330,13 +343,13 @@ def update_task(task_id: int, task_update: schemas.TaskUpdate, db: Session = Dep
     
     create_activity(db, 1, "task_updated", f"Updated task: {db_task.title}")
     
-    # Format for response
     if db_task.attachments:
         db_task.attachments = json.loads(db_task.attachments)
     else:
         db_task.attachments = []
         
     return db_task
+
 # ========== COMMENT ENDPOINTS ==========
 @app.get("/tasks/{task_id}/comments", response_model=List[schemas.CommentResponse])
 def get_task_comments(task_id: int, db: Session = Depends(get_db)):
@@ -345,7 +358,6 @@ def get_task_comments(task_id: int, db: Session = Depends(get_db)):
 
 @app.post("/comments", response_model=schemas.CommentResponse, status_code=status.HTTP_201_CREATED)
 def create_comment(comment: schemas.CommentCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
-    # Note: Hum current_user le rahe hain taaki pata chale comment kisne kiya
     task = db.query(models.Task).filter(models.Task.task_id == comment.task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -353,13 +365,13 @@ def create_comment(comment: schemas.CommentCreate, db: Session = Depends(get_db)
     new_comment = models.Comment(
         content=comment.content,
         task_id=comment.task_id,
-        user_id=current_user.user_id # Logged in user ka ID
+        user_id=current_user.user_id
     )
     db.add(new_comment)
     db.commit()
     db.refresh(new_comment)
     
-    # Notify Agent if someone else comments
+    # Notify Agent
     if task.agent_id and task.agent_id != current_user.user_id:
         create_notification(
             db, 
@@ -371,13 +383,36 @@ def create_comment(comment: schemas.CommentCreate, db: Session = Depends(get_db)
     
     return new_comment
 
-# ========== NOTIFICATION & OTHER ENDPOINTS ==========
+# ========== NOTIFICATION ENDPOINTS (UPDATED) ==========
+# Ab Notifications User specific hongi
 @app.get("/notifications", response_model=List[schemas.NotificationResponse])
-def get_notifications(user_id: Optional[int] = None, db: Session = Depends(get_db)):
-    query = db.query(models.Notification)
-    if user_id:
-        query = query.filter(models.Notification.user_id == user_id)
-    return query.order_by(models.Notification.created_at.desc()).all()
+def get_my_notifications(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    notifications = db.query(models.Notification)\
+        .filter(models.Notification.user_id == current_user.user_id)\
+        .order_by(models.Notification.created_at.desc())\
+        .all()
+    return notifications
+
+@app.put("/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    notification = db.query(models.Notification).filter(
+        models.Notification.notification_id == notification_id,
+        models.Notification.user_id == current_user.user_id
+    ).first()
+    
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+        
+    notification.status = "read"
+    db.commit()
+    return {"message": "Notification marked as read"}
 
 @app.get("/task-types", response_model=List[schemas.TaskTypeResponse])
 def get_task_types(db: Session = Depends(get_db)):
@@ -401,12 +436,10 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         "tasks_by_status": dict(tasks_by_status)
     }
 
-# ========== STARTUP EVENT (Create Tables & Default Data) ==========
+# ========== STARTUP EVENT ==========
 @app.on_event("startup")
 def startup_event():
-    # Tables Create karna
     models.Base.metadata.create_all(bind=engine)
-    
     db = next(get_db())
     try:
         # Default Task Types
@@ -426,7 +459,7 @@ def startup_event():
             admin_user = models.User(
                 username="admin",
                 email="admin@outsource.com",
-                password="admin123", # Real app mein hash karna chahiye
+                password="admin123", 
                 first_name="Admin",
                 last_name="User",
                 job_title="Administrator"

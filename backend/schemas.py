@@ -153,7 +153,12 @@ class TaskBase(BaseModel):
     agent_id: Optional[int] = None
     attachments: Optional[List[str]] = None
 
+# backend/schemas.py mein jahan "class TaskCreate(TaskBase): pass" likha hai,
+# usay hata kar ye paste karein:
+
 class TaskCreate(TaskBase):
+    client_id: int        # <--- Humne isay Optional se Required (Integer) bana diya
+    task_type_id: int     # <--- Isay bhi Required (Integer) bana diya
     pass
 
 class TaskUpdate(BaseModel):
