@@ -1,5 +1,4 @@
-"use client";
-
+﻿'use client';
 import BasicLineChart from '@/components/charts/LineChart';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
@@ -13,7 +12,7 @@ export default function DashboardPage() {
     const { setToken } = useAuthStore();
 
     return (
-        <div className="min-h-screen position-fixed bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
             {/* Header */}
             <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -42,7 +41,7 @@ export default function DashboardPage() {
                 {/* Welcome Section */}
                 <div className="mb-8">
                     <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                        Welcome Back! 👋
+                        Welcome Back! ðŸ‘‹
                     </h2>
                     <p className="text-gray-600 dark:text-gray-400">
                         Here's what's happening with your account today.

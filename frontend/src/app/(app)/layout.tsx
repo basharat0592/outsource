@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 "use client";
 
 import { ReactNode, useState } from "react";
@@ -45,6 +46,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 
                 {/* Content */}
                 <main className="p-4 md:p-6">{children}</main>
+=======
+import { ReactNode } from "react";
+import NavBar from '@/components/common/NavBar';
+import Sidebar from '@/components/common/Sidebar';
+
+
+export default function AppLayout({ children }: { children: ReactNode }) {
+    return (
+        <div className="flex min-h-screen">
+            <Sidebar />
+            <div className="flex-1">
+                <NavBar />
+                <main className="p-6">{children}</main>
+>>>>>>> d05f14e5c1eee35bb5d7ecbe808dcdda1dcdfd21
             </div>
         </div>
     );
